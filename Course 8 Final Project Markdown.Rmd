@@ -1,0 +1,88 @@
+---
+title: "Practical Machine Learning Final Project"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## About this project
+
+Human Activity projects initially focused on the ability to predict what form of movement an individual was doing. More recently, there have been projects that try to measure how accurately an individual is performing a movement.
+
+In this project, participants were asked to perform unilateral bicep dumbbell curls in 5 different ways while wearing accelerometers: 
+1. Correctly (Class A)
+2. Throwing the elbows to the front (Class B)
+3. Lifting the Dumbbell only half-way (Class C)
+4. Lowering the Dumbbell only half-way (Class D)
+5. Throwing the hips to the front (Class E)
+
+We would like to see if the data gathered from the accelerometers can be used to accurately predict what way the lift was being performed.
+
+The first thing we need to do is load the necessary packages and download the data. There is a training set, and a set to use as a "quiz" at the end to measure the accuracy of the model we build.
+
+```{r download the files}
+library(caret)
+library(parallel)
+library(doParallel)
+
+training_file <- 'pml-training.csv'
+quiz_file <- 'pml-testing.csv'
+training_url <- 'https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv'
+quiz_url <- 'https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv'
+
+
+#download.file(training_url, training_file)
+#download.file(quiz_url,quiz_file)
+```
+
+## Cleaning the data
+
+Examining the data, it appears there are numerous NA values such as NA, an empty space ("") and #DIV/0!. We want to remove the variables where the data is NA. Also, we want to remove variables that aren't predictors, such as the name and index variables. 
+
+```{r clean}
+training <- read.csv(training_file, na.strings = c("NA","","#DIV/0!"))
+quiz <- read.csv(quiz_file, na.strings = c("NA","","#DIV/0!"))
+
+training <- training[,colSums(is.na(training)) == 0]
+quiz <- quiz[,colSums(is.na(quiz)) == 0]
+
+training <- training[,-c(1:7)]
+quiz <- quiz[,-c(1:7)]
+
+```
+
+## Partitioning the training data
+
+We now want to partition the training data, into a training set and a test set.
+
+```{r training and test}
+inTrain <- createDataPartition(training$classe, p = .6, list = FALSE)
+
+inTraining <- training[inTrain,]
+inTesting <- training[-inTrain,]
+
+```
+
+## Building a Model
+
+We will build a model using the random forest method, and use cross validation in the train control function.
+
+```{r model}
+rfModel <- train(classe ~., method='rf', data=inTraining, trControl=trainControl(method='cv',number=5,allowParallel = TRUE))
+
+rfPrediction <- predict(rfModel, inTesting)
+
+confusionMatrix(rfPrediction,inTesting$classe)
+```
+
+As you can see from the confusionMatrix, this model has over 99% accuracy on the test set.
+
+## Prediction and Conclusion
+Finally, we will use the model to predict classe for the quiz set.
+
+```{r prediction and conclusion}
+predict(rfModel, quiz)
+```
+
